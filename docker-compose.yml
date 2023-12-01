@@ -1,0 +1,11 @@
+version: '3'
+services:
+  speech2text:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      # https://telegram.me/BotFather
+      - TELEGRAM_TOKEN=YOUR_BOT_TOKEN
+      # https://github.com/openai/whisper#available-models-and-languages
+      - WHISPER_MODEL=small # options are: tiny, base, small, medium, large
