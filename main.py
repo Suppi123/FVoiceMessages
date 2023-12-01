@@ -1,10 +1,29 @@
+"""
+Telegram Transcription Bot
+
+This script defines a Telegram bot that transcribes voice messages
+using the Whisper ASR (Automatic Speech Recognition) model.
+Users can send audio messages to the bot, and it will transcribe
+the messages and send back the transcriptions.
+
+Dependencies:
+- python-telegram-bot
+- whisper
+
+Author: [Fabian Kopf]
+
+References:
+- Python-telegram-bot library: https://python-telegram-bot.readthedocs.io/
+- Whisper library: [https://github.com/openai/whisper]
+"""
 import os
-import whisper
 import logging
+import whisper
 import telegram.ext.filters
 from telegram import Update
 from telegram.constants import ChatAction
-from telegram.ext import ApplicationBuilder, ContextTypes, CommandHandler, CallbackContext, MessageHandler
+from telegram.ext import ApplicationBuilder, ContextTypes, CommandHandler, \
+    CallbackContext, MessageHandler
 
 # Define your environment variables or use hardcoded values
 token = os.environ.get('TELEGRAM_TOKEN')
@@ -17,8 +36,8 @@ logging.basicConfig(
 )
 
 # Load the Whisper ASR model
-logging.log(logging.INFO, f'Load model {model_name}')
-model = whisper.load_model(model_name)
+logging.info('Load model %s', model_name)
+MODEL = whisper.load_model(model_name)
 logging.log(logging.INFO, 'Model loaded')
 
 
@@ -33,7 +52,7 @@ async def transcript_file(file) -> list:
         list: A list of transcribed text segments.
     """
     # download the voice note as a file
-    result = model.transcribe(file.file_path)
+    result = MODEL.transcribe(file.file_path)
     segments = result['segments']
     segment_chunks = [segments[x:x + 10] for x in range(0, len(segments), 10)]
     messages = []
@@ -67,8 +86,9 @@ async def notify_user(update: Update, context: CallbackContext):
         update (telegram.Update): The incoming update.
         context (telegram.ext.CallbackContext): The callback context.
     """
-    await context.bot.send_message(chat_id=update.effective_chat.id, text="I'll transcribe your audio file. "
-                                                                          "This may take a while. Stay tuned!")
+    await context.bot.send_message(chat_id=update.effective_chat.id,
+                                   text="I'll transcribe your audio file. "
+                                        "This may take a while. Stay tuned!")
     await context.bot.send_chat_action(chat_id=update.effective_chat.id, action=ChatAction.TYPING)
 
 
