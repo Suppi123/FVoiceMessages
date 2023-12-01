@@ -4,8 +4,7 @@ RUN apt-get update && apt-get install -y python3 python3-pip ffmpeg
 
 WORKDIR /usr/src/app
 
-RUN pip install -U openai-whisper --break-system-packages
-RUN pip install python-telegram-bot --break-system-packages
+RUN pip install -U openai-whisper python-telegram-bot --break-system-packages
 
 COPY main.py .
 
