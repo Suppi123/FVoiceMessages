@@ -18,8 +18,9 @@ References:
 """
 import os
 import logging
-import whisper
+import torch
 import telegram.ext.filters
+from faster_whisper import WhisperModel
 from telegram import Update
 from telegram.constants import ChatAction
 from telegram.ext import ApplicationBuilder, ContextTypes, CommandHandler, \
@@ -35,13 +36,18 @@ logging.basicConfig(
     level=logging.INFO
 )
 
+DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
+logging.info('Use device: %s', DEVICE)
+COMPUTE_TYPE = 'float16' if torch.cuda.is_available() else 'int8'
+logging.info('Use compute type: %s', COMPUTE_TYPE)
+
 # Load the Whisper ASR model
 logging.info('Load model %s', model_name)
-MODEL = whisper.load_model(model_name)
+MODEL = WhisperModel(model_name, device=DEVICE, compute_type=COMPUTE_TYPE)
 logging.log(logging.INFO, 'Model loaded')
 
 
-async def transcript_file(file) -> list:
+async def transcript_file(update: Update, context: CallbackContext, file) -> list:
     """
     Transcribes an audio file using the Whisper ASR model.
 
@@ -50,32 +56,26 @@ async def transcript_file(file) -> list:
 
     Returns:
         list: A list of transcribed text segments.
+        :param file:
+        :param context:
+        :param update:
     """
-    # download the voice note as a file
-    result = MODEL.transcribe(file.file_path)
-    segments = result['segments']
-    segment_chunks = [segments[x:x + 10] for x in range(0, len(segments), 10)]
-    messages = []
-    for segment_list in segment_chunks:
-        message = ''
-        for segment in segment_list:
-            message += f"{segment['text']}\n\n"
-        messages.append(str.strip(message))
-    return messages
+    # download the voice note as a file and transcribe
+    segments, info = MODEL.transcribe(file.file_path, beam_size=5)
 
+    probability = round(info.language_probability * 100)
+    language_guess = f"I am {probability}% sure that the language used is {info.language}"
+    await context.bot.send_message(chat_id=update.effective_chat.id,
+                                   text=language_guess, parse_mode='html')
 
-async def process_message(update: Update, context: CallbackContext, file):
-    """
-    Processes the transcribing of an audio file asynchronously.
-
-    Parameters:
-        update (telegram.Update): The incoming update.
-        context (telegram.ext.CallbackContext): The callback context.
-        file (telegram.File): The audio file to be transcribed.
-    """
-    transcript = await transcript_file(file)
-    for message in transcript:
-        await context.bot.send_message(chat_id=update.effective_chat.id, text=message)
+    for segment in segments:
+        message = f"<b>[{round(segment.start, 2)} -> {round(segment.end, 2)}]</b>" \
+                  f"\n\n{str.strip(segment.text)}"
+        await context.bot.send_message(chat_id=update.effective_chat.id,
+                                       text=message,
+                                       parse_mode='html')
+        await context.bot.send_chat_action(chat_id=update.effective_chat.id,
+                                           action=ChatAction.TYPING)
 
 
 async def notify_user(update: Update, context: CallbackContext):
@@ -115,7 +115,7 @@ async def get_voice(update: Update, context: CallbackContext) -> None:
     """
     await notify_user(update, context)
     file = await context.bot.get_file(update.message.voice.file_id)
-    await process_message(update, context, file)
+    await transcript_file(update, context, file)
 
 
 async def get_audio(update: Update, context: CallbackContext) -> None:
@@ -128,7 +128,7 @@ async def get_audio(update: Update, context: CallbackContext) -> None:
     """
     await notify_user(update, context)
     file = await context.bot.get_file(update.message.audio.file_id)
-    await process_message(update, context, file)
+    await transcript_file(update, context, file)
 
 if __name__ == '__main__':
     # Build the Telegram bot application
