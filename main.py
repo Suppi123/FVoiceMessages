@@ -36,14 +36,14 @@ logging.basicConfig(
     level=logging.INFO
 )
 
-device = 'cuda' if torch.cuda.is_available() else 'cpu'
-logging.info('Use device: %s', device)
-compute_type = 'float16' if torch.cuda.is_available() else 'int8'
-logging.info('Use compute type: %s', compute_type)
+DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
+logging.info('Use device: %s', DEVICE)
+COMPUTE_TYPE = 'float16' if torch.cuda.is_available() else 'int8'
+logging.info('Use compute type: %s', COMPUTE_TYPE)
 
 # Load the Whisper ASR model
 logging.info('Load model %s', model_name)
-MODEL = WhisperModel(model_name, device=device, compute_type=compute_type)
+MODEL = WhisperModel(model_name, device=DEVICE, compute_type=COMPUTE_TYPE)
 logging.log(logging.INFO, 'Model loaded')
 
 
@@ -65,12 +65,17 @@ async def transcript_file(update: Update, context: CallbackContext, file) -> lis
 
     probability = round(info.language_probability * 100)
     language_guess = f"I am {probability}% sure that the language used is {info.language}"
-    await context.bot.send_message(chat_id=update.effective_chat.id, text=language_guess, parse_mode='html')
+    await context.bot.send_message(chat_id=update.effective_chat.id,
+                                   text=language_guess, parse_mode='html')
 
     for segment in segments:
-        message = "<b>[%.2fs -> %.2fs]</b>\n\n%s" % (segment.start, segment.end, str.strip(segment.text))
-        await context.bot.send_message(chat_id=update.effective_chat.id, text=message, parse_mode='html')
-        await context.bot.send_chat_action(chat_id=update.effective_chat.id, action=ChatAction.TYPING)
+        message = f"<b>[{round(segment.start, 2)} -> {round(segment.end, 2)}]</b>" \
+                  f"\n\n{str.strip(segment.text)}"
+        await context.bot.send_message(chat_id=update.effective_chat.id,
+                                       text=message,
+                                       parse_mode='html')
+        await context.bot.send_chat_action(chat_id=update.effective_chat.id,
+                                           action=ChatAction.TYPING)
 
 
 async def notify_user(update: Update, context: CallbackContext):
