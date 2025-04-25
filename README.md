@@ -16,5 +16,5 @@ You can also set different AI models to perform the transcription. You can find 
 
 You can start the bot with 
 ```bash
-docker-compose up -d
+docker compose up -d
 ```
